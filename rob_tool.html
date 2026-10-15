@@ -1,0 +1,396 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>L07 Renaming Stepper</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: lab-notebook workbench. Left rail = program + narration/controls, right = rename table and ROB, drawn like the L07 slide. */
+:root{
+  --bg:#f5f4f8; --surface:#ffffff; --sunk:#efedf4; --ink:#1d1a26; --muted:#655f72; --line:#d9d5e3; --rule:#1d1a26;
+  --accent:#4b1f78; --accent-ink:#ffffff; --accent-soft:#ece4f6;
+  --present:#0d7356; --present-bg:#e0f3ea; --wait:#9a5300; --wait-bg:#fbeedb;
+  --flash:#ffeb8a; --err:#b3261e; --err-bg:#fbe5e3; --ok:#0d7356; --ok-bg:#e0f3ea;
+  --display:"Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#14121a; --surface:#1d1a25; --sunk:#252130; --ink:#ebe8f2; --muted:#a39cb3; --line:#363141; --rule:#8d86a0;
+  --accent:#c2a6ec; --accent-ink:#1d1a26; --accent-soft:#2e2540;
+  --present:#5fd3a8; --present-bg:#163a2e; --wait:#f1b765; --wait-bg:#3c2b12;
+  --flash:#5a4f1c; --err:#ff8f86; --err-bg:#3d1c1a; --ok:#5fd3a8; --ok-bg:#163a2e; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#14121a; --surface:#1d1a25; --sunk:#252130; --ink:#ebe8f2; --muted:#a39cb3; --line:#363141; --rule:#8d86a0;
+  --accent:#c2a6ec; --accent-ink:#1d1a26; --accent-soft:#2e2540;
+  --present:#5fd3a8; --present-bg:#163a2e; --wait:#f1b765; --wait-bg:#3c2b12;
+  --flash:#5a4f1c; --err:#ff8f86; --err-bg:#3d1c1a; --ok:#5fd3a8; --ok-bg:#163a2e; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:2px solid var(--accent);padding-bottom:14px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(1.6rem,3.4vw,2.3rem);line-height:1.1;margin:0;color:var(--accent);text-wrap:balance;letter-spacing:-.01em}
+.sub{margin:4px 0 0;color:var(--muted);font-size:.92rem}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px}
+.tabs button{font:inherit;font-weight:700;font-size:.9rem;border:0;background:transparent;color:var(--muted);padding:7px 14px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.layout{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:minmax(0,1fr)}}
+.rail{display:flex;flex-direction:column;gap:16px;min-width:0}
+.boards{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:start;min-width:0}
+@media (max-width:640px){.boards{grid-template-columns:minmax(0,1fr)}}
+.label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+
+/* program */
+.prog{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;font-family:var(--mono);font-size:.86rem}
+.prog li{display:grid;grid-template-columns:1.4em minmax(0,1fr) auto;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.prog li.next{background:var(--accent-soft)}
+.prog .n{color:var(--muted)}
+.chip{font-family:var(--body);font-size:.72rem;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
+.chip.wait{background:var(--wait-bg);color:var(--wait)}
+.chip.exec{background:var(--accent-soft);color:var(--accent)}
+.chip.done{background:var(--present-bg);color:var(--present)}
+
+/* panel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{font-family:var(--display);font-size:1.15rem;margin:0;line-height:1.25;text-wrap:balance}
+.panel p{margin:0}
+.stepno{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.slidebadge{display:inline-block;font-size:.75rem;font-weight:700;background:var(--accent);color:var(--accent-ink);padding:2px 8px;border-radius:99px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:inherit;font-weight:700;font-size:.9rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.dots{display:flex;flex-wrap:wrap;gap:4px}
+.dots button{width:14px;height:14px;padding:0;border-radius:3px;border:1px solid var(--line);background:var(--sunk);cursor:pointer}
+.dots button.past{background:var(--accent-soft);border-color:var(--accent-soft)}
+.dots button.cur{background:var(--accent);border-color:var(--accent)}
+.dots button.slide{box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--wait)}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{font:inherit;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 12px;border-radius:8px;cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.right{border-color:var(--ok);background:var(--ok-bg)}
+.opt.wrong{border-color:var(--err);background:var(--err-bg)}
+.opt:disabled{cursor:default}
+.fb{padding:10px 12px;border-radius:8px;font-size:.93rem}
+.fb.ok{background:var(--ok-bg)} .fb.bad{background:var(--err-bg)}
+.fb strong{display:block;margin-bottom:2px}
+.score{font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.msg{padding:10px 12px;border-radius:8px;font-size:.93rem;background:var(--sunk)}
+.msg.ok{background:var(--ok-bg)} .msg.err{background:var(--err-bg);color:var(--ink)}
+.msg.err::before{content:"Not allowed. ";font-weight:700;color:var(--err)}
+.log{list-style:none;margin:0;padding:0;font-size:.82rem;color:var(--muted);display:flex;flex-direction:column;gap:3px;max-height:170px;overflow:auto}
+.log li{font-family:var(--mono)}
+.hint{font-size:.86rem;color:var(--muted)}
+kbd{font-family:var(--mono);font-size:.78rem;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px}
+
+/* slide tables */
+.tblwrap{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;font-family:var(--mono);font-size:.9rem;font-variant-numeric:tabular-nums;background:var(--surface)}
+th{font-family:var(--body);font-weight:700;font-size:.8rem;color:var(--muted);padding:4px 8px;text-align:center;white-space:nowrap}
+td{border:1px solid var(--rule);padding:0 8px;height:34px;text-align:center;white-space:nowrap;min-width:2.2em;transition:background-color .5s}
+td.rh,th.rh{border:0;background:var(--bg);color:var(--ink);font-weight:600;text-align:right;padding-right:10px}
+tbody tr:first-child td:not(.rh){border-top-width:2px}
+td.p1{color:var(--present);font-weight:600} td.p0{color:var(--wait);font-weight:600}
+td.val{color:var(--present)} td.tag{color:var(--wait);background:var(--wait-bg)}
+td.freed{color:var(--muted)}
+td.dim{color:var(--muted)}
+td.chg{background:var(--flash)!important}
+td.act{border:0;background:var(--bg);text-align:left;padding-left:8px}
+td.act .btn{padding:4px 10px;font-size:.78rem}
+.tail{color:var(--accent);font-family:var(--body);font-size:.7rem;font-weight:700;margin-left:4px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.82rem;color:var(--muted);margin-top:8px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+@media (prefers-reduced-motion: reduce){td{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Renaming &amp; Out-of-order Issue</h1>
+      <p class="sub">The L07-14 example from 6.5900, one event at a time. Five-entry ROB, entries freed on completion.</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Mode">
+      <button role="tab" id="tab-walk" data-mode="walk">Walkthrough</button>
+      <button role="tab" id="tab-quiz" data-mode="quiz">Quiz</button>
+      <button role="tab" id="tab-sand" data-mode="sand">Sandbox</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="rail">
+      <div>
+        <p class="label">Program</p>
+        <ol class="prog" id="prog"></ol>
+      </div>
+      <div class="panel" id="panel"></div>
+    </div>
+
+    <div class="boards">
+      <div>
+        <p class="label">Renaming table &amp; reg file</p>
+        <div class="tblwrap"><table id="regs"></table></div>
+      </div>
+      <div style="min-width:0">
+        <p class="label">Reorder buffer</p>
+        <div class="tblwrap"><table id="rob"></table></div>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--present-bg);border:1px solid var(--present)"></span>p = 1: value present (v<sub>i</sub>)</span>
+          <span><span class="sw" style="background:var(--wait-bg);border:1px solid var(--wait)"></span>p = 0: waiting on tag (t<sub>i</sub>)</span>
+          <span><span class="sw" style="background:var(--flash)"></span>changed by the last event</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROG=[
+  {n:1,op:'FLD', dest:'f2', srcs:[],          text:'FLD    f2, 34(x12)'},
+  {n:2,op:'FLD', dest:'f4', srcs:[],          text:'FLD    f4, 45(x13)'},
+  {n:3,op:'FMUL',dest:'f6', srcs:['f4','f2'], text:'FMUL.D f6, f4, f2'},
+  {n:4,op:'FSUB',dest:'f8', srcs:['f2','f2'], text:'FSUB.D f8, f2, f2'},
+  {n:5,op:'FDIV',dest:'f4', srcs:['f2','f8'], text:'FDIV.D f4, f2, f8'},
+  {n:6,op:'FADD',dest:'f10',srcs:['f6','f4'], text:'FADD.D f10, f6, f4'},
+];
+const N=5, REGS=Array.from({length:10},(_,i)=>'f'+(i+1));
+const emptyE=()=>({ins:null,use:0,exec:0,op:'',p1:null,s1:'',p2:null,s2:''});
+const init=()=>({regs:Object.fromEntries(REGS.map(r=>[r,{p:1,d:''}])),rob:Array.from({length:N},emptyE),tail:0,next:0,st:{}});
+const clone=o=>JSON.parse(JSON.stringify(o));
+const fmt=(p,d)=>`(${p}, ${d||'old value'})`;
+
+function act(s0,a){
+  const s=clone(s0), fail=m=>({ok:false,msg:m,s:s0});
+  if(a[0]==='ins'){
+    if(s.next>=PROG.length) return fail('All six instructions are already inserted.');
+    const e=s.rob[s.tail];
+    if(e.use) return fail(`The ROB is full. The allocation pointer is at t${s.tail+1}, which still holds instruction ${e.ins}. Insertion stalls until that entry completes.`);
+    const I=PROG[s.next], tag='t'+(s.tail+1), ne={...emptyE(),ins:I.n,use:1,op:I.op};
+    let m=`Inserted ${I.op} (instruction ${I.n}) into ${tag}.`;
+    if(I.srcs.length){
+      const a1=s.regs[I.srcs[0]], a2=s.regs[I.srcs[1]];
+      Object.assign(ne,{p1:a1.p,s1:a1.d,p2:a2.p,s2:a2.d});
+      m+=` src1 ${I.srcs[0]} → ${fmt(a1.p,a1.d)}${a1.p?'':', waiting'}. src2 ${I.srcs[1]} → ${fmt(a2.p,a2.d)}${a2.p?'':', waiting'}.`;
+    } else m+=' A load has no FP sources to read.';
+    const old=s.regs[I.dest];
+    if(old.p===0) m+=` ${I.dest} was pointing at ${old.d}; that mapping is replaced.`;
+    s.regs[I.dest]={p:0,d:tag}; m+=` ${I.dest} → (0, ${tag}).`;
+    s.rob[s.tail]=ne; s.st[I.n]={tag,status:'wait'};
+    s.tail=(s.tail+1)%N; s.next++;
+    return {ok:true,msg:m,s};
+  }
+  const i=a[1], e=s.rob[i], tag='t'+(i+1);
+  if(!e.use) return fail(`${tag} is empty.`);
+  if(a[0]==='iss'){
+    if(e.exec) return fail(`${tag} is already executing.`);
+    const w=[]; if(e.p1===0) w.push(`src1 is still tag ${e.s1}`); if(e.p2===0) w.push(`src2 is still tag ${e.s2}`);
+    if(w.length) return fail(`${tag} (${e.op}) can't issue: ${w.join(' and ')}. An entry issues only when both p bits are 1.`);
+    e.exec=1; s.st[e.ins].status='exec';
+    return {ok:true,msg:`${tag} (${e.op}) issues to a functional unit. exec = 1.`,s};
+  }
+  if(a[0]==='cmp'){
+    if(!e.exec) return fail(`${tag} (${e.op}) hasn't issued yet. An instruction has to execute before it can complete.`);
+    const v='v'+e.ins, hit=[];
+    s.rob.forEach((x,j)=>{ if(!x.use) return;
+      if(x.p1===0&&x.s1===tag){x.p1=1;x.s1=v;hit.push(`${x.op} src1 (t${j+1})`)}
+      if(x.p2===0&&x.s2===tag){x.p2=1;x.s2=v;hit.push(`${x.op} src2 (t${j+1})`)}});
+    let regHit=false;
+    REGS.forEach(r=>{const x=s.regs[r]; if(x.p===0&&x.d===tag){s.regs[r]={p:1,d:v};hit.unshift(r);regHit=true}});
+    let m=`${tag} broadcasts (${tag}, ${v}). `+(hit.length?`Updated: ${hit.join(', ')}.`:'Nothing was waiting on it.');
+    if(!regHit){const d=PROG[e.ins-1].dest; m+=` ${d} is not written because it now points to ${s.regs[d].d||'a later value'}; a later instruction renamed it.`}
+    m+=` ${tag} is freed.`;
+    s.rob[i]={...emptyE(),ins:e.ins,use:0}; s.st[e.ins]={tag,status:'done',v};
+    return {ok:true,msg:m,s};
+  }
+}
+
+const STEPS=[
+ {a:['ins'],t:'Insert FLD f2 into t1',
+  q:'FLD f2 goes into ROB slot t1. What does the rename table hold for f2 afterward?',
+  o:['p=0, t1','p=1, v1','Unchanged. f2 keeps its old value until the load finishes','p=0, f2'],
+  x:'Insertion renames the destination right away. f2 now means "whatever t1 produces," so it becomes p=0 with tag t1. Any later reader of f2 copies that tag.'},
+ {a:['iss',0],t:'Issue t1',
+  q:'Can the load in t1 issue immediately?',
+  o:['Yes. Its only source is the integer base register x12, so no FP operand is pending','No. It must wait until f2 is present','No. It has to wait until it reaches the head of the ROB'],
+  x:'The FP rename table only tracks f-registers. The load has nothing to wait for, so it goes to the memory unit and exec becomes 1.'},
+ {a:['cmp',0],t:'Complete t1, broadcast (t1, v1)',
+  q:'The load finishes and broadcasts (t1, v1). What happens?',
+  o:['f2 becomes p=1, v1 and t1 is freed (use = 0)','f2 becomes p=1, v1, but t1 stays allocated until someone reads it','t1 is freed but f2 is unchanged'],
+  x:'Every field holding tag t1 takes v1 and flips p to 1. Here that is only f2. In this L07 scheme an entry is freed as soon as its instruction completes, so t1 shows use = 0. That is the lone 0 in the top row of your screenshot.'},
+ {a:['ins'],t:'Insert FLD f4 into t2',
+  q:'t1 is free again. Which slot does FLD f4 take?',
+  o:['t2','t1, the lowest free slot','t1, because FLD f2 is finished'],
+  x:'The ROB is managed circularly. The allocation pointer already moved past t1, so the next instruction lands in t2. t1 is reused only when the pointer wraps around. f4 becomes (0, t2).'},
+ {a:['iss',1],t:'Issue t2',
+  q:'t2 issues. What does the rename table say for f4 now?',
+  o:['Still p=0, t2. Issuing starts the work but produces no value','p=1, v2','p=0, f4'],
+  x:'Issue only sets exec = 1. The value shows up at completion. Loads are slow, so this one stays in flight for several more steps.'},
+ {a:['ins'],t:'Insert FMUL f6, f4, f2 into t3',slide:true,
+  q:'FMUL f6, f4, f2 reads its sources from the rename table. What lands in (p1, src1) and (p2, src2)?',
+  o:['(0, t2) and (1, v1)','(1, v2) and (1, v1)','(0, t2) and (0, t1)','(0, f4) and (0, f2)'],
+  x:'f4 is still waiting on the load, so src1 copies (0, t2). f2 holds a value, so src2 copies (1, v1). f6 is renamed to t3. This is exactly the state in your screenshot.'},
+ {a:['ins'],t:'Insert FSUB f8, f2, f2 into t4',
+  q:'What are FSUB’s source fields?',
+  o:['(1, v1) and (1, v1)','(0, t1) and (0, t1)','(0, t3) and (1, v1)'],
+  x:'Both sources are f2, which holds v1, so FSUB has everything it needs. f8 is renamed to t4.'},
+ {a:['iss',3],t:'Issue t4 (FSUB) ahead of FMUL',
+  q:'FSUB issues while FMUL, which is earlier in the program, is still waiting. Why is that legal?',
+  o:['Both FSUB operands are present, and issue checks readiness, not program order','FSUB is a faster operation than FMUL','FMUL is already executing'],
+  x:'This is out-of-order issue. Any entry with use = 1, exec = 0, and both p bits set can go. FSUB doesn’t depend on the load, so nothing holds it back.'},
+ {a:['ins'],t:'Insert FDIV f4, f2, f8 into t5',
+  q:'FDIV writes f4, but the load into f4 (t2) hasn’t finished. What does the rename table hold for f4 afterward?',
+  o:['p=0, t5','p=0, t2. The older pending write keeps its claim','p=1, v2'],
+  x:'Sources are read first: f2 gives (1, v1) and f8 gives (0, t4). Then f4 is renamed to t5, replacing t2. Readers of f4 from now on want FDIV’s result. FMUL already copied t2, so it will still get the load’s value.'},
+ {a:['cmp',3],t:'Complete t4, broadcast (t4, v4)',
+  q:'FSUB broadcasts (t4, v4). Which fields change?',
+  o:['f8 and FDIV’s src2 both become (1, v4)','Only f8','Only FDIV’s src2','f8, FDIV’s src2, and FMUL’s src1'],
+  x:'The broadcast matches every field holding t4: f8 in the rename table and src2 of the FDIV in t5. FMUL is waiting on t2, not t4. t4 is freed.'},
+ {a:['iss',4],t:'Issue t5 (FDIV)',
+  q:'Which entry can issue now?',
+  o:['t5, the FDIV','t3, the FMUL','Neither. The load has to finish first'],
+  x:'FDIV now has (1, v1) and (1, v4). FMUL still has p1 = 0. So instruction 5 starts executing before instructions 2 and 3 have finished.'},
+ {a:['cmp',1],t:'Complete t2, broadcast (t2, v2)',
+  q:'The load finally broadcasts (t2, v2). What happens to f4 in the rename table?',
+  o:['Nothing. f4 now points to t5, so tag t2 doesn’t match','f4 becomes (1, v2)','f4 becomes (1, v2), then gets overwritten when FDIV finishes'],
+  x:'Only FMUL’s src1 matches t2, so it becomes (1, v2). f4 is left alone because FDIV is the last writer of f4 in program order. The load’s value goes only to the instruction that needed it, which is how renaming removes the WAW hazard. t2 is freed.'},
+ {a:['iss',2],t:'Issue t3 (FMUL)',
+  q:'What lets FMUL issue now?',
+  o:['Its src1 just became (1, v2), so both p bits are 1','FDIV finished','It reached the head of the ROB'],
+  x:'Both operands are present, so FMUL begins executing.'},
+ {a:['ins'],t:'Insert FADD f10, f6, f4 into t1',
+  q:'The allocation pointer wraps around. Where does FADD f10, f6, f4 go, and what does it copy?',
+  o:['t1, with (0, t3) and (0, t5)','t6, with (0, t3) and (0, t5)','t1, with (1, v3) and (1, v5)','t1, with (0, t3) and (0, t2)'],
+  x:'After t5 the pointer wraps to t1, which was freed in step 3, so the tag t1 is reused. f6 is still waiting on FMUL (t3) and f4 on FDIV (t5). f10 is renamed to t1.'},
+ {a:['cmp',2],t:'Complete t3, broadcast (t3, v3)',
+  q:'FMUL broadcasts (t3, v3). Which fields change?',
+  o:['f6 and FADD’s src1','Only f6','Only FADD’s src1'],
+  x:'Both hold tag t3, so both become (1, v3). FADD still waits on t5. t3 is freed.'},
+ {a:['cmp',4],t:'Complete t5, broadcast (t5, v5)',
+  q:'FDIV broadcasts (t5, v5). Can FADD issue afterward?',
+  o:['Yes. Both of its p bits are now 1','No. It is still waiting on t2','No. Older instructions must finish first'],
+  x:'f4 and FADD’s src2 both match t5 and become (1, v5). f4 finally gets its correct value, from its last writer. t5 is freed.'},
+ {a:['iss',0],t:'Issue t1 (FADD)',
+  q:'After FADD issues, what does the table hold for f10?',
+  o:['p=0, t1','p=1, v6','p=0, t6'],
+  x:'Issuing produces nothing yet. f10 waits on tag t1, which now belongs to FADD.'},
+ {a:['cmp',0],t:'Complete t1, broadcast (t1, v6)',
+  q:'Everything is done. What is the final value of f4?',
+  o:['v5, from the FDIV','v2, from the second load','Whichever of v2 and v5 was broadcast last'],
+  x:'f10 becomes (1, v6) and the ROB is empty. f4 holds v5 because FDIV is the last writer of f4 in program order. Completion timing didn’t matter: the load’s v2 never reached f4 because the tag no longer matched.'},
+];
+const WS=[init()];
+STEPS.forEach(st=>{const r=act(WS.at(-1),st.a); if(!r.ok) console.error(r.msg); WS.push(r.s)});
+const SLIDE=STEPS.findIndex(s=>s.slide)+1;
+
+/* ---------- rendering ---------- */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function renderBoards(s,prev,sandbox){
+  const c=(cur,old)=>prev&&cur!==old?' chg':'';
+  $('regs').innerHTML='<thead><tr><th class="rh"></th><th>p</th><th>data</th></tr></thead><tbody>'+
+    REGS.map(r=>{const x=s.regs[r], o=prev?.regs[r]; const blank=x.d==='';
+      return `<tr><td class="rh">${r}</td><td class="${blank?'dim':x.p?'p1':'p0'}${c(x.p+x.d,o&&o.p+o.d)}">${blank?'':x.p}</td>
+      <td class="${blank?'dim':x.p?'val':'tag'}${c(x.p+x.d,o&&o.p+o.d)}" style="min-width:4.5em">${blank?'':x.d}</td></tr>`}).join('')+'</tbody>';
+  const cols=['ins','use','exec','op','p1','s1','p2','s2'];
+  $('rob').innerHTML='<thead><tr><th class="rh"></th><th>Ins#</th><th>use</th><th>exec</th><th>op</th><th>p1</th><th>src1</th><th>p2</th><th>src2</th>'+(sandbox?'<th class="rh"></th>':'')+'</tr></thead><tbody>'+
+    s.rob.map((e,i)=>{const o=prev?.rob[i]; const free=!e.use&&e.ins!==null;
+      const cell=(k)=>{let v=e[k], cls='';
+        if(e.ins===null&&!e.use) v='';
+        else if(free&&k!=='ins'&&k!=='use') v='';
+        if(k==='p1'||k==='p2'){ if(v===null) v=''; else if(v!=='') cls=v?'p1':'p0'; }
+        if((k==='s1'&&e.p1!==null&&!free)||(k==='s2'&&e.p2!==null&&!free)) cls=(k==='s1'?e.p1:e.p2)?'val':'tag';
+        if(free) cls='freed';
+        const ch=prev&&o&&JSON.stringify(e[k])!==JSON.stringify(o[k])?' chg':'';
+        return `<td class="${cls}${ch}"${k==='s1'||k==='s2'?' style="min-width:3.6em"':''}${k==='op'?' style="min-width:4.2em"':''}>${v===null?'':esc(v)}</td>`};
+      let actc='';
+      if(sandbox){ actc='<td class="act">'+(e.use?(e.exec?`<button class="btn" data-cmp="${i}">Complete</button>`:`<button class="btn" data-iss="${i}">Issue</button>`):'')+'</td>'; }
+      return `<tr><td class="rh">t${i+1}${s.tail===i&&s.next<PROG.length?'<span class="tail" title="Next instruction is inserted here">◂ next</span>':''}</td>${cols.map(cell).join('')}${actc}</tr>`}).join('')+'</tbody>';
+  $('prog').innerHTML=PROG.map((I,k)=>{const st=s.st[I.n]; let chip='<span class="chip">not inserted</span>';
+    if(st) chip=st.status==='done'?`<span class="chip done">done · ${st.v}</span>`:st.status==='exec'?`<span class="chip exec">${st.tag} · executing</span>`:`<span class="chip wait">${st.tag} · in ROB</span>`;
+    return `<li class="${k===s.next?'next':''}"><span class="n">${I.n}</span><span>${esc(I.text)}</span>${chip}</li>`}).join('');
+}
+
+/* ---------- modes ---------- */
+let mode='walk', w=0;
+let qi=0, qAns=null, qScore=0, qTried=0, qOrder=[];
+let sb=init(), sbPrev=null, sbUndo=[], sbMsg=null, sbLog=[];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const newOrder=()=>{qOrder=STEPS.map(s=>shuffle(s.o.map((_,k)=>k)))};
+newOrder();
+
+function render(){
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===mode));
+  const P=$('panel');
+  if(mode==='walk'){
+    renderBoards(WS[w],w?WS[w-1]:null,false);
+    const st=STEPS[w-1];
+    P.innerHTML=`<div class="row" style="justify-content:space-between"><span class="stepno">Step ${w} of ${STEPS.length}</span>${st?.slide?'<span class="slidebadge">Your slide</span>':''}</div>
+      <h2>${w?esc(st.t):'Start: nothing inserted yet'}</h2>
+      <p>${w?esc(st.x):'Six instructions, an empty five-entry ROB, and a rename table where every register already holds a value (blank means p = 1, old value). Step forward and watch the highlighted cells change.'}</p>
+      <div class="dots" aria-label="Steps">${WS.map((_,k)=>`<button aria-label="Go to step ${k}" class="${k===w?'cur':k<w?'past':''}${k===SLIDE?' slide':''}" data-go="${k}"></button>`).join('')}</div>
+      <div class="row"><button class="btn" id="prev" ${w?'':'disabled'}>← Back</button><button class="btn primary" id="next" ${w<STEPS.length?'':'disabled'}>Next →</button>
+      ${w!==SLIDE?`<button class="btn" id="toslide">Jump to your slide</button>`:''}</div>
+      <p class="hint">Use <kbd>←</kbd> <kbd>→</kbd> to step.</p>`;
+    $('prev').onclick=()=>{w=Math.max(0,w-1);render()};
+    $('next').onclick=()=>{w=Math.min(STEPS.length,w+1);render()};
+    $('toslide')&&($('toslide').onclick=()=>{w=SLIDE;render()});
+    P.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{w=+b.dataset.go;render()});
+  }
+  else if(mode==='quiz'){
+    renderBoards(WS[qi],qi?WS[qi-1]:null,false);
+    if(qi>=STEPS.length){
+      P.innerHTML=`<h2>Quiz complete</h2><p>You got <strong>${qScore} of ${STEPS.length}</strong> right on the first try.</p>
+      <p class="hint">${qScore===STEPS.length?'Every step correct. Try the sandbox and find a different legal order.':'Rerun it, or open the walkthrough on the steps you missed.'}</p>
+      <div class="row"><button class="btn primary" id="qrestart">Start over</button></div>`;
+      $('qrestart').onclick=()=>{qi=0;qAns=null;qScore=0;qTried=0;newOrder();render()};
+      return;
+    }
+    const st=STEPS[qi], ord=qOrder[qi];
+    P.innerHTML=`<div class="row" style="justify-content:space-between"><span class="stepno">Question ${qi+1} of ${STEPS.length}</span><span class="score">${qScore}/${qTried} correct</span></div>
+      <p class="label" style="margin:0">Next event: ${esc(st.t)}</p>
+      <h2>${esc(st.q)}</h2>
+      <div class="opts">${ord.map(k=>`<button class="opt${qAns!==null?(k===0?' right':k===qAns?' wrong':''):''}" data-k="${k}" ${qAns!==null?'disabled':''}>${esc(st.o[k])}</button>`).join('')}</div>
+      ${qAns!==null?`<div class="fb ${qAns===0?'ok':'bad'}"><strong>${qAns===0?'Correct.':'Not quite.'}</strong>${esc(st.x)}</div>
+      <div class="row"><button class="btn primary" id="qnext">Apply this step →</button></div>`:'<p class="hint">Answer to see the step applied to the tables.</p>'}`;
+    P.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{qAns=+b.dataset.k;qTried++;if(qAns===0)qScore++;render()});
+    $('qnext')&&($('qnext').onclick=()=>{qi++;qAns=null;render()});
+  }
+  else{
+    renderBoards(sb,sbPrev,true);
+    const done=sb.next>=PROG.length&&sb.rob.every(e=>!e.use);
+    const nxt=PROG[sb.next];
+    P.innerHTML=`<h2>Sandbox</h2>
+      <p class="hint">You drive the machine. Insert instructions in order, then issue and complete entries in any order you like. Illegal moves are refused with the reason.</p>
+      <div class="row"><button class="btn primary" id="sins" ${nxt?'':'disabled'}>${nxt?'Insert '+esc(nxt.op)+' (instr '+nxt.n+')':'All inserted'}</button>
+      <button class="btn" id="sundo" ${sbUndo.length?'':'disabled'}>Undo</button><button class="btn" id="sreset">Reset</button></div>
+      ${sbMsg?`<div class="msg ${sbMsg.ok?'ok':'err'}">${esc(sbMsg.msg)}</div>`:''}
+      ${done?`<div class="msg ok"><strong>Program finished.</strong> f2 = v1, f4 = v5, f6 = v3, f8 = v4, f10 = v6. That matches running the six instructions in order, whatever order you issued and completed them in.</div>`:''}
+      <p class="hint">Challenge: get FDIV (instr 5) to complete before the second FLD. Then check that f4 still ends up as v5.</p>
+      ${sbLog.length?`<div><p class="label">Event log</p><ol class="log">${sbLog.map(l=>`<li>${esc(l)}</li>`).join('')}</ol></div>`:''}`;
+    const run=a=>{const r=act(sb,a); sbMsg=r;
+      if(r.ok){sbUndo.push({sb,sbLog:sbLog.slice()}); sbPrev=sb; sb=r.s;
+        const lbl=a[0]==='ins'?`insert ${PROG[sb.next-1].op} → ${sb.st[sb.next].tag}`:`${a[0]==='iss'?'issue':'complete'} t${a[1]+1}`;
+        sbLog.unshift(`${sbUndo.length}. ${lbl}`)}
+      render()};
+    $('sins').onclick=()=>run(['ins']);
+    $('sundo').onclick=()=>{const u=sbUndo.pop(); sb=u.sb; sbLog=u.sbLog; sbPrev=sbUndo.at(-1)?.sb??null; sbMsg=null; render()};
+    $('sreset').onclick=()=>{sb=init();sbPrev=null;sbUndo=[];sbMsg=null;sbLog=[];render()};
+    document.querySelectorAll('[data-iss]').forEach(b=>b.onclick=()=>run(['iss',+b.dataset.iss]));
+    document.querySelectorAll('[data-cmp]').forEach(b=>b.onclick=()=>run(['cmp',+b.dataset.cmp]));
+  }
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;try{localStorage.setItem('l07mode',mode)}catch(e){};render()});
+document.addEventListener('keydown',e=>{ if(mode!=='walk'||e.target.closest('input,textarea'))return;
+  if(e.key==='ArrowRight'&&w<STEPS.length){w++;render()} if(e.key==='ArrowLeft'&&w>0){w--;render()}});
+try{const m=localStorage.getItem('l07mode'); if(m&&['walk','quiz','sand'].includes(m)) mode=m}catch(e){}
+w=SLIDE;
+render();
+</script>
+
+</body></html>
